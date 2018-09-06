@@ -64,8 +64,40 @@ public class LogAnalyzerService extends AnalyzerService<LogAnalyzerService.LogRe
             throw new NoSuchFieldError(String.format("-%s and -%s options are required. Use -%s option to print help",
                     OptionsEnum.t.name(), OptionsEnum.u.name(), OptionsEnum.h.name()));
 
-        maxRequestTime = new Float(cmd.getOptionValue(OptionsEnum.t.name()));
-        maxSuccessRate = new Float(cmd.getOptionValue(OptionsEnum.u.name()));
+        try {
+            maxRequestTime = new Float(cmd.getOptionValue(OptionsEnum.t.name()));
+            maxSuccessRate = new Float(cmd.getOptionValue(OptionsEnum.u.name()));
+        } catch (NumberFormatException e) {
+            throw new NumberFormatException(String.format(
+                    "wrong format for options \"-%s\" and \"-%s\". Use \"-%s\" option to print help",
+                    OptionsEnum.t.name(), OptionsEnum.u.name(), OptionsEnum.h.name()));
+        }
+
+        if (!cmd.hasOption(OptionsEnum.i.name())) return;
+
+        String intervalOptionValue = cmd.getOptionValue(OptionsEnum.i.name());
+        String interval = getPatternMatchValue(intervalOptionValue, "\\d+");
+        String intervalType = getPatternMatchValue(intervalOptionValue, "[hms]");
+
+        try {
+            if (interval == null || intervalType == null)
+                throw new IllegalArgumentException();
+
+            intervalValue = new Integer(interval);
+
+            if ("h".equals(intervalType))
+                this.intervalType = Calendar.HOUR;
+            else if ("m".equals(intervalType))
+                this.intervalType = Calendar.MINUTE;
+            else if ("s".equals(intervalType))
+                this.intervalType = Calendar.SECOND;
+            else throw new IllegalArgumentException();
+
+        } catch (Throwable e) {
+            throw new IllegalArgumentException(String.format(
+                    "wrong format for option \"-%s\". Use \"-%s\" option to print help",
+                    OptionsEnum.i.name(), OptionsEnum.h.name()));
+        }
     }
 
     @Override

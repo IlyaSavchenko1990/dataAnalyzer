@@ -46,10 +46,9 @@ public class Main {
             return;
         }
 
-        analyzer.addListener(out);
-        analyzer.setOptions();
-
         try {
+            analyzer.addListener(out);
+            analyzer.setOptions();
             executor.execute(analyzer);
         } catch (Throwable e) {
             out.printException(null, e);

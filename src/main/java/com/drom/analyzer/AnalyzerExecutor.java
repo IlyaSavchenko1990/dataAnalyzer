@@ -2,8 +2,10 @@ package com.drom.analyzer;
 
 import com.drom.analyzer.enums.OptionsEnum;
 import com.drom.analyzer.services.AnalyzerService;
+import com.drom.analyzer.services.OutputService;
 import com.drom.analyzer.util.OptionsHelper;
 import org.apache.commons.cli.CommandLine;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.io.*;
@@ -15,6 +17,9 @@ import java.io.*;
  */
 @Component
 class AnalyzerExecutor implements AnalyzerService.Executor {
+
+    @Autowired
+    private OutputService out;
 
     @Override
     public void execute(AnalyzerService analyzer) throws IOException {
@@ -54,8 +59,9 @@ class AnalyzerExecutor implements AnalyzerService.Executor {
             if (line == null || "".equals(line)) {
                 if (wait) {
                     try {
-                        //Waiting new input data for 2 seconds
-                        Thread.sleep(2000L);
+                        long sleepTimeOut = 2000L;
+                        out.print(String.format("Waiting new input data for %s ms", sleepTimeOut));
+                        Thread.sleep(sleepTimeOut);
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
                         throw new RuntimeException("App is not able to wait input: thread is interrupted");
