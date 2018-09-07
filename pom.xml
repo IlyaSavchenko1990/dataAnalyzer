@@ -71,6 +71,7 @@
                     </execution>
                 </executions>
                 <configuration>
+                    <finalName>analyze</finalName>
                     <archive>
                         <manifest>
                             <mainClass>com.drom.analyzer.Main</mainClass>
@@ -79,6 +80,7 @@
                     <descriptorRefs>
                         <descriptorRef>jar-with-dependencies</descriptorRef>
                     </descriptorRefs>
+                    <appendAssemblyId>false</appendAssemblyId>
                 </configuration>
             </plugin>
             <plugin>
