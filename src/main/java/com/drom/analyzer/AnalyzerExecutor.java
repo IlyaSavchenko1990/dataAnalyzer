@@ -1,9 +1,9 @@
 package com.drom.analyzer;
 
 import com.drom.analyzer.enums.OptionsEnum;
-import com.drom.analyzer.services.AnalyzerService;
+import com.drom.analyzer.services.LogAnalyzerService;
+import com.drom.analyzer.services.OptionsService;
 import com.drom.analyzer.services.OutputService;
-import com.drom.analyzer.util.OptionsHelper;
 import org.apache.commons.cli.CommandLine;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -16,14 +16,17 @@ import java.io.*;
  * @date 03.09.2018
  */
 @Component
-class AnalyzerExecutor implements AnalyzerService.Executor {
+class AnalyzerExecutor implements LogAnalyzerService.Executor {
 
     @Autowired
     private OutputService out;
 
+    @Autowired
+    private OptionsService options;
+
     @Override
-    public void execute(AnalyzerService analyzer) throws IOException {
-        CommandLine cmd = OptionsHelper.getCmd();
+    public void execute(LogAnalyzerService analyzer) throws IOException {
+        CommandLine cmd = options.getSelectedOptions();
 
         if (cmd.hasOption(OptionsEnum.f.name()))
             readFile(cmd.getOptionValue(OptionsEnum.f.name()), analyzer);
@@ -31,7 +34,7 @@ class AnalyzerExecutor implements AnalyzerService.Executor {
             readInput(analyzer, !cmd.hasOption(OptionsEnum.nw.name()));
     }
 
-    private void readInput(AnalyzerService analyzer, boolean wait) throws IOException {
+    private void readInput(LogAnalyzerService analyzer, boolean wait) throws IOException {
         try (BufferedReader reader =
                      new BufferedReader(new InputStreamReader(System.in))) {
             if (!reader.ready()) {
@@ -42,7 +45,7 @@ class AnalyzerExecutor implements AnalyzerService.Executor {
         }
     }
 
-    private void readFile(String filePath, AnalyzerService analyzer) throws IOException {
+    private void readFile(String filePath, LogAnalyzerService analyzer) throws IOException {
         File file = new File(filePath);
         if (!file.exists())
             throw new FileNotFoundException(String.format("File with path \"%s\" not found!", filePath));
@@ -52,15 +55,15 @@ class AnalyzerExecutor implements AnalyzerService.Executor {
         }
     }
 
-    private void read(BufferedReader reader, AnalyzerService analyzer, boolean wait) throws IOException {
+    private void read(BufferedReader reader, LogAnalyzerService analyzer, boolean wait) throws IOException {
         while (true) {
             String line = reader.readLine();
             analyzer.analyze(line);
             if (line == null || "".equals(line)) {
                 if (wait) {
                     try {
-                        long sleepTimeOut = 2000L;
-                        out.print(String.format("Waiting new input data for %s ms", sleepTimeOut));
+                        long sleepTimeOut = 5000L;
+                        out.print(String.format("Waiting new input data for %s ms. Press ctrl+c to stop", sleepTimeOut));
                         Thread.sleep(sleepTimeOut);
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();

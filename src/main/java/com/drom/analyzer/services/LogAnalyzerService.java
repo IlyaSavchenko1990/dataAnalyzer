@@ -11,12 +11,12 @@ import java.util.List;
  * @email ilyasavchenko1990@gmail.com
  * @date 03.09.2018
  */
-public abstract class AnalyzerService<T extends AnalyzerService.Result> {
+public abstract class LogAnalyzerService<T extends LogAnalyzerService.Result> {
 
     protected List<Listener> listeners;
     protected T result;
 
-    public abstract void setOptions();
+    public abstract void setSelectedOptions(CommandLine cmd);
 
     public abstract void analyze(String line);
 
@@ -45,7 +45,7 @@ public abstract class AnalyzerService<T extends AnalyzerService.Result> {
     }
 
     public interface Executor {
-        void execute(AnalyzerService analyzer) throws IOException;
+        void execute(LogAnalyzerService analyzer) throws IOException;
     }
 
     public interface Listener {

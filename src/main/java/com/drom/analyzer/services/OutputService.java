@@ -1,8 +1,5 @@
 package com.drom.analyzer.services;
 
-import com.drom.analyzer.util.OptionsHelper;
-import org.apache.commons.cli.HelpFormatter;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 /**
@@ -13,10 +10,7 @@ import org.springframework.stereotype.Service;
  * @date 03.09.2018
  */
 @Service
-public class OutputService implements AnalyzerService.Listener {
-
-    @Value("${app.name}")
-    private String appName;
+public class OutputService implements LogAnalyzerService.Listener {
 
     @Override
     public void call(String message) {
@@ -30,9 +24,5 @@ public class OutputService implements AnalyzerService.Listener {
     public void printException(String comment, Throwable throwable) {
         print(String.format((comment == null ? "" : comment + " ") + "%s",
                 throwable.getMessage() == null ? throwable : throwable.getMessage()));
-    }
-
-    public void printHelp() {
-        new HelpFormatter().printHelp(appName, OptionsHelper.getOptions());
     }
 }

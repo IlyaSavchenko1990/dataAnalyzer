@@ -1,8 +1,9 @@
 package com.drom.analyzer;
 
-import com.drom.analyzer.services.AnalyzerService;
+import com.drom.analyzer.enums.OptionsEnum;
+import com.drom.analyzer.services.LogAnalyzerService;
+import com.drom.analyzer.services.OptionsService;
 import com.drom.analyzer.services.OutputService;
-import com.drom.analyzer.util.OptionsHelper;
 import org.apache.commons.cli.ParseException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
@@ -21,10 +22,13 @@ import java.util.logging.LogManager;
 public class Main {
 
     @Autowired
-    private AnalyzerService analyzer;
+    private LogAnalyzerService analyzer;
 
     @Autowired
     private AnalyzerExecutor executor;
+
+    @Autowired
+    private OptionsService options;
 
     @Autowired
     private OutputService out;
@@ -39,16 +43,21 @@ public class Main {
 
     private void start(String[] args) {
         try {
-            OptionsHelper.build(args);
+            options.buildFromArgs(args);
         } catch (ParseException e) {
             out.printException(null, e);
-            out.printHelp();
+            options.printHelp();
+            return;
+        }
+
+        if (options.getSelectedOptions().hasOption(OptionsEnum.h.name())) {
+            options.printHelp();
             return;
         }
 
         try {
+            analyzer.setSelectedOptions(options.getSelectedOptions());
             analyzer.addListener(out);
-            analyzer.setOptions();
             executor.execute(analyzer);
         } catch (Throwable e) {
             out.printException(null, e);

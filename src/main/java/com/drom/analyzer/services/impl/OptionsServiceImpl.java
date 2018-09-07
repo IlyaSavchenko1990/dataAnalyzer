@@ -1,29 +1,51 @@
-package com.drom.analyzer.util;
+package com.drom.analyzer.services.impl;
 
 import com.drom.analyzer.enums.OptionsEnum;
+import com.drom.analyzer.services.OptionsService;
 import org.apache.commons.cli.*;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
 
 /**
  * @author Ilya Savchenko
  * @email ilyasavchenko1990@gmail.com
  * @date 04.09.2018
  */
-public class OptionsHelper {
+@Service
+public class OptionsServiceImpl implements OptionsService {
 
-    private static CommandLine cmd;
-    private static Options options;
+    @Value("${app.name}")
+    private String appName;
+    private CommandLine cmd;
+    private Options options;
 
-    public static void build(String[] args) throws ParseException {
-        cmd = new DefaultParser().parse(getOptions(), args);
+    @Override
+    public void buildFromArgs(String[] args) throws ParseException {
+        buildOptions();
+        cmd = new DefaultParser().parse(options, args);
     }
 
-    public static CommandLine getCmd() {
+    @Override
+    public CommandLine getSelectedOptions() {
+        if (cmd == null)
+            throw new IllegalStateException("options command line is not initialized!");
+
         return cmd;
     }
 
-    public static Options getOptions() {
-        if (options != null) return options;
+    @Override
+    public Options getOptions() {
+        if (options == null) buildOptions();
+        return options;
+    }
 
+    @Override
+    public void printHelp() {
+        new HelpFormatter().printHelp(appName, getOptions());
+    }
+
+
+    protected void buildOptions() {
         options = new Options();
 
         options.addOption(Option.builder()
@@ -68,7 +90,5 @@ public class OptionsHelper {
                 .longOpt(OptionsEnum.h.name())
                 .desc(OptionsEnum.h.getDescription())
                 .build());
-
-        return options;
     }
 }

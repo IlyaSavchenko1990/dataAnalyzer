@@ -1,9 +1,8 @@
 package com.drom.analyzer.services.impl;
 
 import com.drom.analyzer.enums.OptionsEnum;
-import com.drom.analyzer.services.AnalyzerService;
+import com.drom.analyzer.services.LogAnalyzerService;
 import com.drom.analyzer.util.DateUtils;
-import com.drom.analyzer.util.OptionsHelper;
 import org.apache.commons.cli.CommandLine;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -21,7 +20,7 @@ import java.util.regex.Pattern;
  * @date 03.09.2018
  */
 @Service
-public class LogAnalyzerService extends AnalyzerService<LogAnalyzerService.LogResult> {
+public class PerformanceLogAnalyzerService extends LogAnalyzerService<PerformanceLogAnalyzerService.LogResult> {
 
     @Value("${date.pattern}")
     private String datePattern;
@@ -33,8 +32,6 @@ public class LogAnalyzerService extends AnalyzerService<LogAnalyzerService.LogRe
     private String responseCodePattern;
     @Value("${request.time.pattern}")
     private String requestTimePattern;
-    @Value("${code.time.transitional.pattern}")
-    private String codeTimeTransitionalPattern;
     @Value("${date.format}")
     private String dateFormat = "yyyy HH:mm";
 
@@ -46,7 +43,7 @@ public class LogAnalyzerService extends AnalyzerService<LogAnalyzerService.LogRe
     private float maxRequestTime;
     private float maxSuccessRate;
 
-    public LogAnalyzerService() {
+    public PerformanceLogAnalyzerService() {
         super();
         reset();
         intervalType = Calendar.SECOND;
@@ -55,8 +52,7 @@ public class LogAnalyzerService extends AnalyzerService<LogAnalyzerService.LogRe
     }
 
     @Override
-    public void setOptions() {
-        CommandLine cmd = OptionsHelper.getCmd();
+    public void setSelectedOptions(CommandLine cmd) {
         if (cmd == null)
             throw new RuntimeException("Command line options are not found");
 
@@ -103,40 +99,85 @@ public class LogAnalyzerService extends AnalyzerService<LogAnalyzerService.LogRe
     @Override
     public void analyze(String line) {
         if (line == null) return;
+        result.setLineCount(result.getLineCount() + 1);
 
-        String responseCode = getResponseCode(line);
-        String dateStr = getFullDate(line);
+        LogParseResult parseResult = parse(line);
 
         Date date;
         try {
-            date = new SimpleDateFormat(dateFormat).parse(dateStr);
+            date = new SimpleDateFormat(dateFormat).parse(parseResult.getFullDate());
         } catch (ParseException e) {
-            return;
+            throw new IllegalArgumentException(
+                    String.format("incorrect date format at line %s", result.getLineCount()));
         }
 
-        if (responseCode == null || date == null) return;
         if (intervalDate == null) setIntervalDate(date);
 
-        String dateTime = getDateTime(dateStr);
-        if (result.getBeginDate() == null) result.setBeginDate(dateTime);
-        result.setEndDate(dateTime);
+        if (result.getBeginDate() == null) result.setBeginDate(parseResult.getDateTime());
+        result.setEndDate(parseResult.getDateTime());
 
         checkAndNotify(date);
 
-        Float requestTime = getRequestTime(line);
-        updateResult(!(responseCode.startsWith("5") || requestTime == null || requestTime > maxRequestTime));
+        updateResult(!(parseResult.getResponseCode().startsWith("5")
+                || parseResult.getRequestTime() == null || parseResult.getRequestTime() > maxRequestTime));
     }
 
     @Override
     protected void reset() {
         intervalDate = null;
-        result = new LogResult();
+        if (result == null)
+            result = new LogResult();
+
+        result.reset();
     }
 
-    protected static class LogResult implements AnalyzerService.Result {
+    private class LogParseResult {
+        private String fullDate;
+        private String dateTime;
+        private String responseCode;
+        private Float requestTime;
+
+        public LogParseResult() {
+        }
+
+        public String getFullDate() {
+            return fullDate;
+        }
+
+        public void setFullDate(String fullDate) {
+            this.fullDate = fullDate;
+        }
+
+        public String getDateTime() {
+            return dateTime;
+        }
+
+        public void setDateTime(String dateTime) {
+            this.dateTime = dateTime;
+        }
+
+        public String getResponseCode() {
+            return responseCode;
+        }
+
+        public void setResponseCode(String responseCode) {
+            this.responseCode = responseCode;
+        }
+
+        public Float getRequestTime() {
+            return requestTime;
+        }
+
+        public void setRequestTime(Float requestTime) {
+            this.requestTime = requestTime;
+        }
+    }
+
+    protected static class LogResult implements LogAnalyzerService.Result {
         private String beginDate;
         private String endDate;
-        private int count;
+        private long lineCount;
+        private int intervalCount;
         private int successCount;
         private int failCount;
         private float successRate;
@@ -144,9 +185,18 @@ public class LogAnalyzerService extends AnalyzerService<LogAnalyzerService.LogRe
         LogResult() {
         }
 
+        public void reset() {
+            beginDate = null;
+            endDate = null;
+            intervalCount = 0;
+            successCount = 0;
+            failCount = 0;
+            successRate = 0f;
+        }
+
         @Override
         public void count() {
-            successRate = ((float) successCount / count) * 100;
+            successRate = ((float) successCount / intervalCount) * 100;
         }
 
         @Override
@@ -163,6 +213,14 @@ public class LogAnalyzerService extends AnalyzerService<LogAnalyzerService.LogRe
             this.beginDate = beginDate;
         }
 
+        public long getLineCount() {
+            return lineCount;
+        }
+
+        public void setLineCount(long lineCount) {
+            this.lineCount = lineCount;
+        }
+
         String getEndDate() {
             return endDate;
         }
@@ -171,12 +229,12 @@ public class LogAnalyzerService extends AnalyzerService<LogAnalyzerService.LogRe
             this.endDate = endDate;
         }
 
-        int getCount() {
-            return count;
+        int getIntervalCount() {
+            return intervalCount;
         }
 
-        void setCount(int count) {
-            this.count = count;
+        void setIntervalCount(int intervalCount) {
+            this.intervalCount = intervalCount;
         }
 
         int getSuccessCount() {
@@ -205,7 +263,7 @@ public class LogAnalyzerService extends AnalyzerService<LogAnalyzerService.LogRe
     }
 
     private void updateResult(boolean success) {
-        result.setCount(result.getCount() + 1);
+        result.setIntervalCount(result.getIntervalCount() + 1);
 
         if (!success) result.setFailCount(result.getFailCount() + 1);
         else result.setSuccessCount(result.getSuccessCount() + 1);
@@ -239,33 +297,22 @@ public class LogAnalyzerService extends AnalyzerService<LogAnalyzerService.LogRe
             intervalDate = DateUtils.addSeconds(intervalDate, intervalValue);
     }
 
-    private String getResponseCode(String logLine) {
-        String protocolAndCode = getPatternMatchValue(logLine, protocolPattern + responseCodePattern);
-        if (protocolAndCode == null || "".equals(protocolAndCode)) return null;
+    private LogParseResult parse(String line) {
+        Pattern pattern = Pattern.compile(datePattern + dateTimePattern + ".*" + protocolPattern
+                + ".*" + responseCodePattern + "\\d?\\s?" + requestTimePattern);
+        Matcher matcher = pattern.matcher(line);
 
-        return getPatternMatchValue(protocolAndCode, responseCodePattern);
-    }
+        if (!matcher.find())
+            throw new IllegalArgumentException(
+                    String.format("incorrect log format at line %s", result.getLineCount()));
 
-    private String getFullDate(String logLine) {
-        return getPatternMatchValue(logLine, datePattern + dateTimePattern);
-    }
+        LogParseResult parseResult = new LogParseResult();
+        parseResult.setFullDate(matcher.group(1) + matcher.group(2));
+        parseResult.setDateTime(matcher.group(2));
+        parseResult.setResponseCode(matcher.group(4).trim());
+        parseResult.setRequestTime(matcher.group(5) == null ? null : new Float(matcher.group(5)));
 
-    private String getDateTime(String logLine) {
-        return getPatternMatchValue(logLine, dateTimePattern);
-    }
-
-    private Float getRequestTime(String logLine) {
-        String codeAndTime = getPatternMatchValue(logLine, codeTimeTransitionalPattern);
-        if (codeAndTime == null || "".equals(codeAndTime)) return null;
-
-        String requestTimeStr = getPatternMatchValue(codeAndTime, requestTimePattern);
-        if (requestTimeStr == null || "".equals(requestTimeStr)) return null;
-
-        try {
-            return new Float(requestTimeStr);
-        } catch (NumberFormatException e) {
-            return null;
-        }
+        return parseResult;
     }
 
     private String getPatternMatchValue(String str, String regexp) {
